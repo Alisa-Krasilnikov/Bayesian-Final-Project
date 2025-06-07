@@ -15,7 +15,10 @@ editor: source
 
 2.  https://www.flutterbys.com.au/stats/tut/tut11.2b.html
 
-3.  https://www.kaggle.com/datasets/kritirathi/indian-food-dataset-with
+3.  Dataset: https://www.kaggle.com/datasets/kritirathi/indian-food-dataset-with
+
+4.  Log Reg Assumptions: https://www.bayesrulesbook.com/chapter-13#eq:log-model-ch13
+
 
 ## Data
 
@@ -76,7 +79,13 @@ Here, bitter is the reference category for flavor profile (captured by the inter
 
 This model relies on several assumptions:
 
-{Harshini}
+- Bernoulli likelihood: Each dish's vegetarian status is modeled as a Bernoulli trial with probability pi. As each dish is either vegetarian or non-vegetarian(no in-betweens), modeling them using a Bernoulli likelihood is appropriate.
+
+- Independent Observations: Each dish's flavor and vegetarian status are independent of others. This assumption is valid, as we can assume each dish as an individual unit. If several subsets of foods were dependent on being served with each other(often paired), this might be invalid, but we would say we're fine as it is.
+
+- Linearity: The log-odds of being vegetarian are linearly related to the dummy-coded flavor indicators. This assumption is met as we have mutually exclusive categorical data(no food has more than one flavor profile). Thus, we assume that each flavor category has a fixed additive effect on the log-odds of being vegetarian, which is appropriate for categorical predictors.
+
+- No Complete Separation: Ideally, no predictor or combination of predictors would perfectly predict the outcome. We do not meet this assumption.
 
 In the dataset, all sweet and bitter dishes are vegetarian, resulting in complete separation for those categories. This poses a challenge for frequentist logistic regression, which can yield infinite or undefined parameter estimates. However, the Bayesian approach can still yield valid inference by incorporating informative priors, which effectively regularize the estimates and prevent the model from overfitting to the separation.
 
@@ -323,6 +332,8 @@ This analysis indicates that our model really is sensitive to the prior that we 
 
 ## Frequentist Approach:
 
+### Chi-Squared Test
+
 ```{r}
 # not sure we should do this but maybe?
 table(indfood$flavor_profile, indfood$dum_diet) |> chisq.test()
@@ -330,3 +341,14 @@ table(indfood$flavor_profile, indfood$dum_diet) |> chisq.test()
 ```
 
 A chi-squared test is inappropriate in this case due to the complete separation of sweetness and bitter that we mentioned previously. In this situation we would have expected cell counts of zero, violating assumptions of the chi-square test and resulting in inflated test statistics or errors.
+
+
+### Linear Model
+
+Additionally, we fit a linear model, specifically a generalized linear model (glm) instead of a linear model(lm) because our variables are not continuous and are instead categorical.
+
+```{r}
+glm(dum_diet ~ flavor_profile, data = indfood, family = "binomial") 
+```
+
+The extreme size of our coefficients(spicy being -18) confirms what we would expect with the quasi-complete separation of our data.
