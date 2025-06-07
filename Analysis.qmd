@@ -20,6 +20,9 @@ editor: source
 4.  Log Reg Assumptions: https://www.bayesrulesbook.com/chapter-13#eq:log-model-ch13
 
 
+4. https://jrnold.github.io/bayesian_notes/separtion.html#quasi-separation
+
+
 ## Data
 
 ```{r, message = FALSE, echo = TRUE}
