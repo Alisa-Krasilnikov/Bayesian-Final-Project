@@ -13,15 +13,15 @@ editor: source
 -   Chapter 24 - Count Predicted Variables
 -   Exercise 24.3
 
-2.  https://www.flutterbys.com.au/stats/tut/tut11.2b.html
+2.  STAT 415 Handouts
 
-3.  Dataset: https://www.kaggle.com/datasets/kritirathi/indian-food-dataset-with
+3.  https://www.flutterbys.com.au/stats/tut/tut11.2b.html
 
-4.  Log Reg Assumptions: https://www.bayesrulesbook.com/chapter-13#eq:log-model-ch13
+4.  Dataset: https://www.kaggle.com/datasets/kritirathi/indian-food-dataset-with
 
+5.  Log Reg Assumptions: https://www.bayesrulesbook.com/chapter-13#eq:log-model-ch13
 
-4. https://jrnold.github.io/bayesian_notes/separtion.html#quasi-separation
-
+6.  https://jrnold.github.io/bayesian_notes/separtion.html#quasi-separation
 
 ## Data
 
@@ -32,6 +32,8 @@ library(tidybayes)
 library(dplyr)
 library(broom)
 library(tidyr)
+library(ggplot2)
+library(kableExtra)
 ```
 
 Our dataset is the Indian food data set from Kaggle <https://www.kaggle.com/datasets/kritirathi/indian-food-dataset-with>. This is a set which pulls data from online Indian food recipes, and classifies them in various categories. We are particularly interested in whether there is a difference in flavor profile (spicy, sweet, and bitter) across diets (vegetarian and non-vegetarian).
@@ -76,19 +78,19 @@ We use a Bayesian logistic regression model to investigate whether a dish’s fl
 
 Formally, the model assumes:
 
-$dum\_diet_i$ ~ $Bernoulli(p_i)$ with $logit(p_i) = \beta_0 + \beta_1(sweet_i) + \beta_2(spicy_i)$
+$dum\_diet_i$ \~ $Bernoulli(p_i)$ with $logit(p_i) = \beta_0 + \beta_1(sweet_i) + \beta_2(spicy_i)$
 
 Here, bitter is the reference category for flavor profile (captured by the intercept, $\beta_0$. The predictors sweet and spicy are treated as dummy variables indicating the flavor profile of each dish. The log-odds of a dish being vegetarian are modeled as a linear function of its flavor profile.
 
 This model relies on several assumptions:
 
-- Bernoulli likelihood: Each dish's vegetarian status is modeled as a Bernoulli trial with probability pi. As each dish is either vegetarian or non-vegetarian(no in-betweens), modeling them using a Bernoulli likelihood is appropriate.
+-   **Bernoulli likelihood:** Each dish's vegetarian status is modeled as a Bernoulli trial with probability pi. As each dish is either vegetarian or non-vegetarian(no in-betweens), modeling them using a Bernoulli likelihood is appropriate.
 
-- Independent Observations: Each dish's flavor and vegetarian status are independent of others. This assumption is valid, as we can assume each dish as an individual unit. If several subsets of foods were dependent on being served with each other(often paired), this might be invalid, but we would say we're fine as it is.
+-   **Independent Observations:** Each dish's flavor and vegetarian status are independent of others. This assumption is valid, as we can assume each dish as an individual unit. If several subsets of foods were dependent on being served with each other(often paired), this might be invalid, but we would say we're fine as it is.
 
-- Linearity: The log-odds of being vegetarian are linearly related to the dummy-coded flavor indicators. This assumption is met as we have mutually exclusive categorical data(no food has more than one flavor profile). Thus, we assume that each flavor category has a fixed additive effect on the log-odds of being vegetarian, which is appropriate for categorical predictors.
+-   **Linearity:** The log-odds of being vegetarian are linearly related to the dummy-coded flavor indicators. This assumption is met as we have mutually exclusive categorical data(no food has more than one flavor profile). Thus, we assume that each flavor category has a fixed additive effect on the log-odds of being vegetarian, which is appropriate for categorical predictors.
 
-- No Complete Separation: Ideally, no predictor or combination of predictors would perfectly predict the outcome. We do not meet this assumption.
+-   **No Complete Separation:** Ideally, no predictor or combination of predictors would perfectly predict the outcome. We do not meet this assumption.
 
 In the dataset, all sweet and bitter dishes are vegetarian, resulting in complete separation for those categories. This poses a challenge for frequentist logistic regression, which can yield infinite or undefined parameter estimates. However, the Bayesian approach can still yield valid inference by incorporating informative priors, which effectively regularize the estimates and prevent the model from overfitting to the separation.
 
@@ -172,6 +174,8 @@ legend("topleft", legend=c("Bitter (Reference)", "Sweet"),
 
 ```
 
+## Posterior Inference
+
 ### Fitting with brms
 
 ```{r}
@@ -197,22 +201,28 @@ fit <- brm(
 summary(fit) 
 ```
 
+```{r}
+plot(fit)
+```
+
 ### Interpreting Coefficients
 
-The intercept represents the log-odds of a dish being vegetarian when the flavor is bitter. All other coefficients are interpreted relative to this baseline. 
+The intercept represents the log-odds of a dish being vegetarian when the flavor is bitter. All other coefficients are interpreted relative to this baseline.
 
-The posterior intercept is 9.68, indicating that the odds of a `bitter` dish being vegetarian are approximately 15,994.5 to 1 (exp(9.68)). That is, bitter dishes are extremely likely to be vegetarian. Translated to probability, the probability of a dish being vegetarian given it is bitter is about 99% ($\frac{1}{1+e^{-9.68}} = 0.99$). 
+The posterior intercept is 9.68, indicating that the odds of a `bitter` dish being vegetarian are approximately 15,994.5 to 1 (exp(9.68)). That is, bitter dishes are extremely likely to be vegetarian. Translated to probability, the probability of a dish being vegetarian given it is bitter is about 99% ($\frac{1}{1+e^{-9.68}} = 0.99$).
 
-The posterior mean for `sweet` is 1.74. So, based on our posterior, we are most confident that the odds of sweet dishes being vegetarian are approximately \~470% ($(e^{1.74} - 1)*100$%) higher than those of bitter dishes. 
+The posterior mean for `sweet` is 1.74. So, based on our posterior, we are most confident that the odds of sweet dishes being vegetarian are approximately \~470% ($(e^{1.74} - 1)*100$%) higher than those of bitter dishes.
 
-The posterior mean for `spicy` is -8.21. So, based on our posterior, we are most confident that the odds of dishes with spicy flavor being vegetarian are about \~99.97% ($(1 - e^{-8.21})*100$%) lower than those of bitter dishes. 
+The posterior mean for `spicy` is -8.21. So, based on our posterior, we are most confident that the odds of dishes with spicy flavor being vegetarian are about \~99.97% ($(1 - e^{-8.21})*100$%) lower than those of bitter dishes.
 
 ### 95% Credible Intervals
 
 ```{r}
 post <- as_draws_df(fit)
 
-theta_bitter <- plogis(post$b_Intercept) #plogis basically just converts to probability
+theta_bitter <- plogis(post$b_Intercept) 
+
+#plogis basically just converts to probability
 theta_sweet  <- plogis(post$b_Intercept + post$`b_flavor_profilesweet`)
 theta_spicy  <- plogis(post$b_Intercept + post$`b_flavor_profilespicy`)
 
@@ -247,13 +257,117 @@ Based on the posterior distribution, there is a 95% probability that the true pr
 
 Based on the posterior distribution, there is a 95% probability that the true probability of a dish being vegetarian, given it is sweet, lies between 98.8% and 100%. This supports our prior belief that sweet foods are almost always vegetarian.
 
+## Posterior Prediction
 
 ```{r}
-pp_check(fit, type = "bars")
+posterior <- fit |>
+  spread_draws(b_Intercept, b_flavor_profilesweet, b_flavor_profilespicy)
+
+posterior_flavors <- posterior |>
+  mutate(
+    eta_bitter = b_Intercept + 0 * b_flavor_profilesweet + 0 * b_flavor_profilespicy,
+    p_bitter   = 1 / (1 + exp(-eta_bitter)),
+    y_bitter   = rbinom(n(), 1, p_bitter),
+    
+    eta_sweet = b_Intercept + 1 * b_flavor_profilesweet + 0 * b_flavor_profilespicy,
+    p_sweet   = 1 / (1 + exp(-eta_sweet)),
+    y_sweet   = rbinom(n(), 1, p_sweet),
+    
+    eta_spicy = b_Intercept + 0 * b_flavor_profilesweet + 1 * b_flavor_profilespicy,
+    p_spicy   = 1 / (1 + exp(-eta_spicy)),
+    y_spicy   = rbinom(n(), 1, p_spicy)
+  )
+
+#first few rows
+posterior_flavors |> 
+  select(p_bitter, y_bitter, p_sweet, y_sweet, p_spicy, y_spicy) |> 
+  head(10) |>
+  kbl(digits = 3) |> 
+  kable_styling()
+```
+
+```{r}
+#longer
+posterior_long <- posterior_flavors |> 
+  select(y_bitter, y_sweet, y_spicy) |>
+  pivot_longer(cols = everything(),
+               names_to = "flavor_profile",
+               values_to = "y_sim") |>
+  mutate(flavor_profile = case_when(
+    flavor_profile == "y_bitter" ~ "Bitter",
+    flavor_profile == "y_sweet" ~ "Sweet",
+    flavor_profile == "y_spicy" ~ "Spicy"
+  ))
+
+posterior_long |> 
+  head(10) |>
+  kbl(digits = 3) |> 
+  kable_styling()
+```
+
+```{r}
+ggplot(posterior_long, aes(x = factor(y_sim), fill = flavor_profile)) +
+  geom_bar(position = "dodge", aes(y = (..count..) / sum(..count..))) +
+  labs(x = "Simulated Vegetarian Outcome", 
+       y = "Proportion", 
+       title = "Posterior Predictive Check by Flavor Profile") +
+  theme_bw()
+
+#overall
+ggplot(posterior_long, aes(x = factor(y_sim))) +
+  geom_bar(position = "dodge", aes(y = (..count..) / sum(..count..))) +
+  labs(x = "Simulated Vegetarian Outcome", 
+       y = "Proportion", 
+       title = "Posterior Predictive Check") +
+  theme_bw()
+
 
 ```
 
-### Sensitivity Analysis
+```{r}
+# CDF plot for each flavor
+ggplot(posterior_long, aes(x = y_sim, color = flavor_profile)) +
+  stat_ecdf(linewidth = 1) +
+  labs(x = "Simulated Vegetarian Outcome", y = "CDF", color = "Flavor Profile") +
+  theme_bw()
+
+#overall
+ggplot(posterior_long, aes(x = y_sim)) +
+  stat_ecdf(linewidth = 1) +
+  labs(x = "Simulated Vegetarian Outcome", y = "CDF") +
+  theme_bw()
+```
+
+```{r}
+# Posterior predictive 95% interval for each flavor
+posterior_long |>
+  group_by(flavor_profile) |>
+  summarise(
+    mean = mean(y_sim),
+    lower = quantile(y_sim, 0.025),
+    upper = quantile(y_sim, 0.975)
+  )
+```
+
+-   **Bitter**: The model predicts that bitter dishes are vegetarian 99% of the time, and the 95% posterior predictive interval is (1, 1). This suggests extremely high confidence that bitter dishes are vegetarian. It aligns with our dataset where all bitter dishes are vegetarian.
+
+-   **Sweet**: The model predicts that sweet dishes are vegetarian 99.8% of the time, with a 95% predictive interval of (1, 1). It aligns with our dataset where all sweet dishes are vegetarian.
+
+-   **Spicy**: The predicted probability of a spicy dish being vegetarian is around 81%, and the interval (0, 1) reflects that uncertainty. It aligns with our dataset where all spicy dishes are vegetarian OR non-vegetarian.\
+
+## Posterior Predictive Checking
+
+```{r}
+pp_check(fit, type = "hist", ndraw = 10, bins =2)
+```
+
+```{r}
+pp_check(fit, ndraw = 100)
+```
+
+The overall plots for posterior predictive, when not separated by flavor pass the posterior predictive check. However, when we plotted the posterior predictive by flavor, we could see the issue. The histogram distribution is closest to spicy, thus sweet and bitter fail the posterior predictive check. Further, only the CDF for spicy looks similar to what we would expect to see for the posterior predictive. Given the fact that our data has quasi-complete separation, with all sweet or bitter foods being vegetarian, this makes sense.
+
+## Sensitivity Analysis
 
 Let's change our prior for sweetness and see how it affects the model. First, let's let brms choose the prior.
 
@@ -276,9 +390,9 @@ fit <- brm(
 summary(fit)
 ```
 
-Whoa, those estimates look pretty wild! Without any sort of guidance, the model seems to be struggling with the quasi-complete separation within the data. All of the values are quite large, with very large standard errors. 
+Whoa, those estimates look pretty wild! Without any sort of guidance, the model seems to be struggling with the quasi-complete separation within the data. All of the values are quite large, with very large standard errors.
 
-Let's try giving it a very tight prior for sweetness. 
+Let's try giving it a very tight prior for sweetness.
 
 ```{r}
 set.seed(123)
@@ -301,9 +415,10 @@ fit <- brm(
 ```{r}
 summary(fit)
 ```
+
 The posterior estimates for intercept and spiciness are not incredibly different from what they were before, though a bit more uncertain, than when our prior was a little bit less intense. However, it appears as though the posterior estimate for sweetness is identical to our prior.
 
-Let's try a prior that uses a prior for sweetness that's in the wrong direction. 
+Let's try a prior that uses a prior for sweetness that's in the wrong direction.
 
 ```{r}
 set.seed(123)
@@ -327,11 +442,9 @@ fit <- brm(
 summary(fit)
 ```
 
-The posterior for sweetness is, once again, almost identical to the prior that we put in. 
-
+The posterior for sweetness is, once again, almost identical to the prior that we put in.
 
 This analysis indicates that our model really is sensitive to the prior that we put in. This is most definitely due to the fact that we have quasi-complete separation within our data. When no prior is specified (or rather, when we input the default priors), the model returns very large estimates and standard errors. This is a symptom of quasi-complete separation, where the likelihood is flat and the posterior is poorly identified. When a very tight prior (Normal(5, 0.001)) is imposed sweetness, the posterior exactly matches the prior. This shows the data doesn't override the prior at all, meaning the likelihood contains almost no information about that coefficient (because all sweet dishes are vegetarian). When a strongly incorrect prior is imposed (Normal(-1.75, 0.5)), the posterior again conforms tightly to the prior. This further confirms that the data has no signal to counterbalance or correct the prior (quasi-separation behavior).
-
 
 ## Frequentist Approach:
 
@@ -343,15 +456,18 @@ table(indfood$flavor_profile, indfood$dum_diet) |> chisq.test()
 
 ```
 
-A chi-squared test is inappropriate in this case due to the complete separation of sweetness and bitter that we mentioned previously. In this situation we would have expected cell counts of zero, violating assumptions of the chi-square test and resulting in inflated test statistics or errors.
-
+We performed a chi-squared test on flavor profile versus diet yielding a test-statistic of 19.455 with 2 degrees of freedom and a very small p-value (\~0.00006) which is greater than the standard alpha of 0.05. This indicates a significant association between flavor profile and vegetarian status. We expected this given the fact that there are no sweet and bitter foods that are non-vegetarian. Additionally, we get a warning about the chi-squared approximation being incorrect suggesting caution interpreting this test, likely due to small or zero cell counts caused by the quasi-complete separation in ourdata.
 
 ### Linear Model
 
-Additionally, we fit a linear model, specifically a generalized linear model (glm) instead of a linear model(lm) because our variables are not continuous and are instead categorical.
+We fit a linear model, specifically a generalized linear model (glm) instead of a linear model(lm) because our variables are not continuous and are instead categorical.
 
 ```{r}
 glm(dum_diet ~ flavor_profile, data = indfood, family = "binomial") 
 ```
 
-The extreme size of our coefficients(spicy being -18) confirms what we would expect with the quasi-complete separation of our data.
+The intercept corresponds to the log-odds of a bitter dish being vegetarian, which is very high (about 19.57 on the log-odds scale), indicating that bitter dishes are almost always vegetarian. The coefficient for spicy flavor is strongly negative (-18.10), reflecting that spicy dishes are much less likely to be vegetarian compared to bitter dishes. The coefficient for sweet flavor is essentially zero, as most sweet dishes in the data are vegetarian. The extreme size of some of our coefficients confirms what we would expect with the quasi-complete separation of 0.
+
+## Conclusions
+
+Overall, our analysis shows there is a clear association between flavor profile and vegetarian status, with bitter and sweet dishes almost always vegetarian and spicy dishes showing more variation. Due to quasi-complete separation, the model’s estimates for bitter and sweet are extreme and highly influenced by the prior.
